@@ -1,0 +1,172 @@
+apiVersion: catalog.bubustack.io/v1alpha1
+kind: ImpulseTemplate
+metadata:
+  name: kubernetes
+  annotations:
+    registry.bubustack.io/maturity: experimental
+spec:
+  version: 0.1.0
+  description: |
+    Triggers Stories from Kubernetes cluster activity.
+    Supports watching resource changes, cluster events, and more.
+    
+    Modes:
+    - watch: React to resource state changes (Add/Update/Delete)
+    - events: React to Kubernetes Event objects (warnings, errors)
+  image: ghcr.io/bubustack/kubernetes-impulse:0.1.0
+  supportedModes:
+    - deployment
+
+  configSchema:
+    type: object
+    properties:
+      mode:
+        type: string
+        description: Type of Kubernetes activity to watch.
+        required: true
+        enum:
+          - watch
+          - events
+      
+      # ═══════════════════════════════════════════════════════
+      # Mode: watch - Resource changes
+      # ═══════════════════════════════════════════════════════
+      watch:
+        type: object
+        description: Configuration for 'watch' mode. Watches resource state changes.
+        properties:
+          resources:
+            type: array
+            description: Resources to watch.
+            items:
+              type: object
+              properties:
+                apiVersion:
+                  type: string
+                  description: "API version (e.g., v1, apps/v1, bubustack.io/v1alpha1)."
+                  required: true
+                kind:
+                  type: string
+                  description: "Resource kind (e.g., Pod, Deployment, Secret)."
+                  required: true
+                namespace:
+                  type: string
+                  description: Namespace to watch. Empty means all namespaces.
+                labelSelector:
+                  type: string
+                  description: "Label selector (e.g., 'app=myapp,env=prod')."
+                fieldSelector:
+                  type: string
+                  description: "Field selector (e.g., 'status.phase=Failed')."
+          
+          triggers:
+            type: array
+            description: Event types to trigger on.
+            items:
+              type: string
+              enum:
+                - Added
+                - Modified
+                - Deleted
+          
+          filters:
+            type: object
+            description: Additional filtering options.
+            properties:
+              condition:
+                type: string
+                description: |
+                  Template expression for filtering. Available variables: .object, .oldObject, .eventType.
+                  Example: 'eq .object.status.phase "Failed"'
+              debounceSeconds:
+                type: integer
+                description: Debounce rapid updates for the same resource.
+                default: 0
+              includeOldObject:
+                type: boolean
+                description: Include cached previous state for watch events as oldObject.
+                default: true
+      
+      # ═══════════════════════════════════════════════════════
+      # Mode: events - Kubernetes Event objects
+      # ═══════════════════════════════════════════════════════
+      events:
+        type: object
+        description: Configuration for 'events' mode. Watches Kubernetes Event objects.
+        properties:
+          namespaces:
+            type: array
+            description: Namespaces to watch. Empty means all namespaces.
+            items:
+              type: string
+          
+          types:
+            type: array
+            description: Event types to capture.
+            items:
+              type: string
+              enum:
+                - Normal
+                - Warning
+          
+          reasons:
+            type: array
+            description: |
+              Filter by event reason. Common values: FailedScheduling, Unhealthy,
+              Pulled, Created, Killing, BackOff, FailedMount, NodeNotReady.
+            items:
+              type: string
+          
+          involvedObjectKinds:
+            type: array
+            description: Filter by involved object kind (e.g., Pod, Node, Deployment).
+            items:
+              type: string
+          
+          aggregation:
+            type: object
+            description: Aggregate multiple events before triggering.
+            properties:
+              enabled:
+                type: boolean
+                default: false
+              windowSeconds:
+                type: integer
+                description: Time window for aggregation.
+                default: 60
+              minCount:
+                type: integer
+                description: Minimum events before triggering.
+                default: 1
+      
+      # ═══════════════════════════════════════════════════════
+      # Session key configuration (shared across modes)
+      # ═══════════════════════════════════════════════════════
+      sessionKey:
+        type: object
+        description: How to generate session keys for StoryRun deduplication.
+        properties:
+          strategy:
+            type: string
+            description: |
+              auto: Based on resource namespace/name.
+              unique: Unique per event (no deduplication).
+              custom: Use template expression.
+            enum:
+              - auto
+              - unique
+              - custom
+            default: auto
+          expression:
+            type: string
+            description: |
+              Template expression for custom session key. Available vars: .object,
+              .oldObject, .eventType.
+
+  execution:
+    service:
+      ports:
+        - name: health
+          protocol: TCP
+          port: 8080
+          targetPort: 8080
