@@ -5,7 +5,7 @@ metadata:
   annotations:
     registry.bubustack.io/maturity: experimental
 spec:
-  version: 0.1.1 # x-release-please-version
+  version: 0.1.2 # x-release-please-version
   description: |
     Triggers Stories from Kubernetes cluster activity.
     Supports watching resource changes, cluster events, and more.
@@ -13,7 +13,7 @@ spec:
     Modes:
     - watch: React to resource state changes (Add/Update/Delete)
     - events: React to Kubernetes Event objects (warnings, errors)
-  image: ghcr.io/bubustack/kubernetes-impulse:0.1.1 # x-release-please-version
+  image: ghcr.io/bubustack/kubernetes-impulse:0.1.2 # x-release-please-version
   supportedModes:
     - deployment
 
